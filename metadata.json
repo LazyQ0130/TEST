@@ -1,0 +1,5 @@
+{
+  "name": "Lumina MBTI",
+  "description": "A modern, AI-powered MBTI personality assessment tool offering both quick and professional evaluation modes with deep analysis via Gemini.",
+  "requestFramePermissions": []
+}
