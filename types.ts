@@ -1,65 +1,91 @@
 
-export type Dimension = 'EI' | 'SN' | 'TF' | 'JP';
+export type AssessmentType = 'MBTI' | 'HOLLAND' | 'SCL90' | 'IQ' | 'EQ' | 'SPIRITUAL';
 
 export interface Option {
   text: string;
-  value: string; // 'E', 'I', 'S', 'N', etc.
+  value: string | number;
+  score?: number; // For IQ/EQ correct answers or weighted scores
 }
 
 export interface Question {
   id: number;
   text: string;
-  dimension: Dimension;
-  options: [Option, Option];
+  category?: string; // e.g., 'EI' for MBTI, 'R' for Holland, 'Anxiety' for SCL90
+  options: Option[];
 }
 
-export interface Scores {
-  E: number;
-  I: number;
-  S: number;
-  N: number;
-  T: number;
-  F: number;
-  J: number;
-  P: number;
+// Result Types
+export interface MBTIResultData {
+  type: string;
+  scores: Record<string, number>;
+  percentages: Record<string, number>;
 }
 
-export interface MBTIResult {
-  type: string; // e.g., "INTJ"
-  scores: Scores;
-  percentages: {
-    EI: number; // Percent E
-    SN: number; // Percent S
-    TF: number; // Percent T
-    JP: number; // Percent J
-  };
+export interface HollandResultData {
+  code: string; // e.g., "ASE"
+  scores: Record<string, number>; // R, I, A, S, E, C
 }
+
+export interface SCL90ResultData {
+  totalScore: number;
+  averageScore: number;
+  factorScores: Record<string, number>; // Anxiety: 2.5, etc.
+  severity: 'Normal' | 'Mild' | 'Moderate' | 'Severe';
+}
+
+export interface IqEqResultData {
+  score: number;
+  total: number;
+  level: string; // "High", "Average", etc.
+  percentile?: number;
+}
+
+export interface SpiritualResultData {
+  scores: Record<string, number>; // Meaning, Connection, Peace
+  total: number;
+  dominant: string;
+}
+
+export type AssessmentResult = 
+  | { type: 'MBTI'; data: MBTIResultData }
+  | { type: 'HOLLAND'; data: HollandResultData }
+  | { type: 'SCL90'; data: SCL90ResultData }
+  | { type: 'IQ'; data: IqEqResultData }
+  | { type: 'EQ'; data: IqEqResultData }
+  | { type: 'SPIRITUAL'; data: SpiritualResultData };
 
 export interface AIAnalysis {
   title: string;
-  shortDescription: string;
-  strengths: string[];
-  weaknesses: string[];
-  careerPaths: string[];
-  relationships: string;
-  famousPeople: string[];
+  summary: string;
+  keyTraits: string[];
+  recommendations: string[];
+  detailedAnalysis: string;
 }
 
 export interface HistoryItem {
   id: string;
   timestamp: number;
-  result: MBTIResult;
+  assessmentType: AssessmentType;
+  version: 'LITE' | 'PRO';
+  result: AssessmentResult;
+}
+
+export interface AssessmentConfig {
+  id: AssessmentType;
+  title: string;
+  description: string;
+  icon: any; // Lucide icon component
+  color: string;
+  questionsLite: Question[];
+  questionsPro: Question[];
+  durationLite: string;
+  durationPro: string;
 }
 
 export enum AppMode {
-  HOME = 'HOME',
+  DASHBOARD = 'DASHBOARD',
   QUIZ = 'QUIZ',
   ANALYZING = 'ANALYZING',
   RESULT = 'RESULT',
   HISTORY = 'HISTORY',
-}
-
-export enum QuizType {
-  SIMPLE = 'SIMPLE',
-  PROFESSIONAL = 'PROFESSIONAL',
 }

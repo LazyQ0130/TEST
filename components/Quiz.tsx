@@ -1,279 +1,149 @@
+
 import React, { useState, useEffect } from 'react';
-import { Question, QuizType } from '../types';
-import { ArrowLeft, ArrowRight, CheckCircle, AlertCircle, LayoutGrid, X, HelpCircle, ChevronLeft } from 'lucide-react';
+import { Question, Option, AssessmentConfig } from '../types';
+import { ArrowLeft, ArrowRight, CheckCircle, AlertCircle, X, HelpCircle, ChevronLeft } from 'lucide-react';
 import { saveQuizProgress } from '../services/quizStateService';
 
 interface QuizProps {
-  questions: Question[];
-  quizType: QuizType;
+  config: AssessmentConfig & { questions: Question[] };
   initialData?: {
     currentIndex: number;
-    answers: Record<number, string>;
+    answers: Record<number, string | number>;
   } | null;
-  onComplete: (answers: Record<string, number>) => void;
+  onComplete: (answers: Record<number, string | number>) => void;
   onBack: () => void;
 }
 
-const Quiz: React.FC<QuizProps> = ({ questions, quizType, initialData, onComplete, onBack }) => {
+const Quiz: React.FC<QuizProps> = ({ config, initialData, onComplete, onBack }) => {
   const [currentIndex, setCurrentIndex] = useState(initialData?.currentIndex || 0);
-  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>(initialData?.answers || {});
+  const [answers, setAnswers] = useState<Record<number, string | number>>(initialData?.answers || {});
   const [error, setError] = useState<string | null>(null);
-  const [showGrid, setShowGrid] = useState(false);
 
+  const questions = config.questions;
   const currentQuestion = questions[currentIndex];
   const progress = ((currentIndex + 1) / questions.length) * 100;
 
-  // Auto-save progress whenever state changes
   useEffect(() => {
-    saveQuizProgress(quizType, currentIndex, selectedAnswers);
-  }, [currentIndex, selectedAnswers, quizType]);
+    // Only save strictly compliant serializable data
+    saveQuizProgress(config.id, currentIndex, answers as Record<number, string>); 
+  }, [currentIndex, answers, config.id]);
 
-  const handleOptionSelect = (value: string) => {
-    setSelectedAnswers(prev => ({
-      ...prev,
-      [currentQuestion.id]: value
-    }));
+  const handleSelect = (value: string | number) => {
+    setAnswers(prev => ({ ...prev, [currentQuestion.id]: value }));
+    if (currentIndex < questions.length - 1) {
+      setTimeout(() => setCurrentIndex(prev => prev + 1), 200); // Auto-advance for smoother UX
+    }
     if (error) setError(null);
   };
 
   const handleNext = () => {
-    if (currentIndex < questions.length - 1) {
-      setCurrentIndex(prev => prev + 1);
-    }
+    if (currentIndex < questions.length - 1) setCurrentIndex(prev => prev + 1);
   };
 
   const handlePrev = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(prev => prev - 1);
-    }
-  };
-
-  const jumpToQuestion = (index: number) => {
-    setCurrentIndex(index);
-    setShowGrid(false);
-    setError(null);
+    if (currentIndex > 0) setCurrentIndex(prev => prev - 1);
   };
 
   const handleSubmit = () => {
-    // Check for first unanswered question
-    const firstUnansweredIndex = questions.findIndex(q => !selectedAnswers[q.id]);
-
-    if (firstUnansweredIndex !== -1) {
-      setError(`第 ${firstUnansweredIndex + 1} 题尚未完成，已为您跳转。`);
-      setCurrentIndex(firstUnansweredIndex);
+    const unanswered = questions.findIndex(q => answers[q.id] === undefined);
+    if (unanswered !== -1) {
+      setError(`第 ${unanswered + 1} 题尚未完成`);
+      setCurrentIndex(unanswered);
       return;
     }
-
-    // Calculate aggregated scores
-    const scores: Record<string, number> = { E: 0, I: 0, S: 0, N: 0, T: 0, F: 0, J: 0, P: 0 };
-    
-    // Create a map for quick question lookup
-    const questionMap = new Map(questions.map(q => [q.id, q]));
-
-    Object.entries(selectedAnswers).forEach(([qId, answer]) => {
-      const id = parseInt(qId);
-      const question = questionMap.get(id);
-      
-      if (!question) return;
-
-      if (answer === 'NEUTRAL') {
-        const [dim1, dim2] = question.dimension.split('') as [string, string];
-        scores[dim1] += 0.5;
-        scores[dim2] += 0.5;
-      } else {
-        if (scores[answer] !== undefined) {
-          scores[answer]++;
-        } else {
-          scores[answer] = 1;
-        }
-      }
-    });
-
-    onComplete(scores);
+    onComplete(answers);
   };
 
-  const isLastQuestion = currentIndex === questions.length - 1;
-  const currentAnswer = selectedAnswers[currentQuestion.id];
+  const isLast = currentIndex === questions.length - 1;
+  const currentVal = answers[currentQuestion.id];
+
+  // Render options based on type (Likert/Binary vs Multiple Choice)
+  // We can infer layout: if options > 3, grid or list. If 2, side-by-side or big cards.
+  const isBinary = currentQuestion.options.length === 2;
+  const isLikert = currentQuestion.options.length === 5 && typeof currentQuestion.options[0].value === 'number';
 
   return (
-    <div className="w-full max-w-2xl animate-in fade-in slide-in-from-bottom-4 duration-500 relative">
-      
-      {/* Return Home Button */}
-      <button 
-        onClick={onBack}
-        className="mb-6 flex items-center gap-2 text-slate-500 hover:text-indigo-600 transition-colors font-medium px-3 py-2 rounded-lg hover:bg-white"
-      >
-        <ChevronLeft size={20} />
-        <span>保存进度并返回首页</span>
+    <div className="w-full max-w-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <button onClick={onBack} className="mb-6 flex items-center gap-2 text-slate-500 hover:text-indigo-600 transition-colors px-3 py-2 rounded-lg hover:bg-white">
+        <ChevronLeft size={20} /> <span>返回</span>
       </button>
 
-      {/* Question Grid Modal */}
-      {showGrid && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-2xl shadow-2xl max-h-[80vh] overflow-y-auto flex flex-col">
-            <div className="flex justify-between items-center mb-6 shrink-0">
-              <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                <LayoutGrid size={24} className="text-indigo-600"/>
-                题目导航
-              </h3>
-              <button onClick={() => setShowGrid(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-                <X size={24} className="text-slate-500" />
-              </button>
-            </div>
-            
-            <div className="grid grid-cols-5 sm:grid-cols-8 gap-3 overflow-y-auto p-1">
-              {questions.map((q, idx) => {
-                const isAnswered = !!selectedAnswers[q.id];
-                const isCurrent = idx === currentIndex;
-                return (
-                  <button
-                    key={q.id}
-                    onClick={() => jumpToQuestion(idx)}
-                    className={`
-                      aspect-square rounded-xl flex items-center justify-center font-bold text-sm transition-all duration-200
-                      ${isCurrent 
-                          ? 'ring-2 ring-indigo-600 ring-offset-2 bg-white text-indigo-600 border-2 border-indigo-50 shadow-md transform scale-105' 
-                          : isAnswered
-                            ? 'bg-emerald-100 text-emerald-700 border-2 border-emerald-200 hover:bg-emerald-200'
-                            : 'bg-slate-100 text-slate-400 border-2 border-slate-200 hover:bg-slate-200 hover:text-slate-600'
-                      }
-                    `}
-                  >
-                    {idx + 1}
-                  </button>
-                )
-              })}
-            </div>
-            
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-6 text-sm text-slate-500 shrink-0 pt-4 border-t border-slate-100">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-emerald-100 border-2 border-emerald-200 rounded-md"></div>
-                <span>已完成</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-slate-100 border-2 border-slate-200 rounded-md"></div>
-                <span>未完成</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-white border-2 border-indigo-600 rounded-md shadow-sm"></div>
-                <span>当前题目</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Progress Bar */}
+      {/* Progress */}
       <div className="w-full h-2 bg-slate-200 rounded-full mb-8 overflow-hidden">
-        <div 
-          className="h-full bg-indigo-600 transition-all duration-300 ease-out" 
-          style={{ width: `${progress}%` }}
-        />
+        <div className={`h-full ${config.color} transition-all duration-300`} style={{ width: `${progress}%` }} />
       </div>
 
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl text-indigo-600 font-medium">
-              问题 {currentIndex + 1} <span className="text-slate-400 text-base">/ {questions.length}</span>
-            </h2>
-            <button 
-               onClick={() => setShowGrid(true)}
-               className="p-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 hover:shadow-sm rounded-lg transition-all flex items-center gap-2 text-sm font-semibold"
-               title="查看题目列表"
-             >
-               <LayoutGrid size={18} />
-               <span className="hidden sm:inline">选题</span>
-             </button>
-          </div>
-          <span className="text-sm text-slate-500 font-medium bg-slate-100 px-3 py-1 rounded-full">
-            {questions[currentIndex].dimension} 维度
+      <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 mb-8 min-h-[400px] flex flex-col">
+        <div className="mb-6">
+          <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold text-white mb-4 ${config.color} opacity-80`}>
+             {config.title} • Q{currentIndex + 1}/{questions.length}
           </span>
+          <h2 className="text-2xl font-bold text-slate-800 leading-snug">
+            {currentQuestion.text}
+          </h2>
         </div>
-        
-        <h3 className="text-2xl font-bold text-slate-800 mb-8 min-h-[4rem] flex items-center">
-          {currentQuestion.text}
-        </h3>
 
-        <div className="space-y-3">
-          {/* Standard Options */}
-          {currentQuestion.options.map((option, idx) => {
-             const isSelected = currentAnswer === option.value;
-             return (
+        <div className={`grid gap-3 ${isBinary ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'} flex-grow content-start`}>
+          {currentQuestion.options.map((opt, idx) => {
+            const isSelected = currentVal === opt.value;
+            return (
               <button
                 key={idx}
-                onClick={() => handleOptionSelect(option.value)}
-                className={`w-full group relative p-5 border-2 rounded-2xl transition-all duration-200 text-left flex items-center justify-between
+                onClick={() => handleSelect(opt.value)}
+                className={`
+                  relative p-4 rounded-xl border-2 text-left transition-all duration-200
                   ${isSelected 
-                    ? 'border-indigo-600 bg-indigo-50 shadow-md' 
-                    : 'border-slate-100 bg-white hover:border-indigo-300 hover:shadow-sm'
+                    ? `border-indigo-500 bg-indigo-50 text-indigo-900 shadow-md` 
+                    : 'border-slate-100 bg-white text-slate-600 hover:border-indigo-200 hover:bg-slate-50'
                   }
+                  ${isLikert ? 'flex items-center justify-between' : ''}
                 `}
               >
-                <span className={`text-lg font-medium ${isSelected ? 'text-indigo-900' : 'text-slate-700'}`}>
-                  {option.text}
-                </span>
-                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors
-                  ${isSelected ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 group-hover:border-indigo-400'}
-                `}>
-                  {isSelected && <div className="w-2.5 h-2.5 bg-white rounded-full" />}
-                </div>
+                <span className="font-medium">{opt.text}</span>
+                {isSelected && <CheckCircle size={20} className="text-indigo-600" />}
               </button>
             );
           })}
-
-          {/* Uncertain / Neutral Option */}
-          <button
-            onClick={() => handleOptionSelect('NEUTRAL')}
-            className={`w-full group relative p-4 border-2 rounded-2xl transition-all duration-200 text-center flex items-center justify-center gap-2
-              ${currentAnswer === 'NEUTRAL'
-                ? 'border-slate-500 bg-slate-100 text-slate-800 shadow-sm'
-                : 'border-transparent bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700'
-              }
-            `}
-          >
-            <HelpCircle size={18} className={currentAnswer === 'NEUTRAL' ? 'text-slate-800' : 'text-slate-400'} />
-            <span className="font-medium">难以决定 / 不确定</span>
-          </button>
+          
+          {/* MBTI specific: Add Neutral only for MBTI type if needed, or if configured in question options. 
+              The new generic structure assumes options are passed in. 
+              If we want the MBTI 'Neutral' button back, it should be in the options array or handled here conditionally.
+              For simplicity in this generic version, we assume 'Neutral' logic is either part of options or we add a special button for MBTI.
+          */}
+          {config.id === 'MBTI' && (
+             <button
+                onClick={() => handleSelect('NEUTRAL')}
+                className={`p-4 rounded-xl border-2 text-center transition-all duration-200 mt-2
+                  ${currentVal === 'NEUTRAL'
+                    ? 'border-slate-400 bg-slate-100 text-slate-800'
+                    : 'border-transparent text-slate-400 hover:text-slate-600'
+                  }
+                `}
+             >
+               <span className="text-sm font-medium flex items-center justify-center gap-2">
+                 <HelpCircle size={16}/> 难以决定 / 中立
+               </span>
+             </button>
+          )}
         </div>
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-red-600 animate-in shake duration-300">
-          <AlertCircle size={20} className="shrink-0" />
-          <span className="font-medium">{error}</span>
+        <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl flex items-center gap-3 animate-in shake">
+          <AlertCircle size={20} /> {error}
         </div>
       )}
 
-      {/* Navigation Buttons */}
-      <div className="flex justify-between items-center pt-6 border-t border-slate-100 mt-8">
-        <button
-          onClick={handlePrev}
-          disabled={currentIndex === 0}
-          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-colors border border-transparent
-            ${currentIndex === 0 
-              ? 'text-slate-300 cursor-not-allowed' 
-              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-            }`}
-        >
+      <div className="flex justify-between">
+        <button onClick={handlePrev} disabled={currentIndex === 0} className="px-6 py-3 rounded-xl text-slate-500 hover:bg-slate-100 disabled:opacity-50">
           <ArrowLeft size={20} />
-          上一题
         </button>
-
-        {isLastQuestion ? (
-          <button
-            onClick={handleSubmit}
-            className="flex items-center gap-2 px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-200 transition-all transform active:scale-95 shadow-md"
-          >
-            提交测试
-            <CheckCircle size={20} />
+        {isLast ? (
+          <button onClick={handleSubmit} className={`px-8 py-3 ${config.color} text-white rounded-xl font-bold shadow-lg hover:opacity-90 transition-transform active:scale-95`}>
+            查看结果
           </button>
         ) : (
-          <button
-            onClick={handleNext}
-            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800 transition-colors shadow-md"
-          >
-            下一题
+          <button onClick={handleNext} className="px-6 py-3 rounded-xl bg-slate-900 text-white hover:bg-slate-800">
             <ArrowRight size={20} />
           </button>
         )}

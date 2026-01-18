@@ -1,5 +1,5 @@
 {
-  "name": "Lumina MBTI",
-  "description": "A modern, AI-powered MBTI personality assessment tool offering both quick and professional evaluation modes with deep analysis via Gemini.",
+  "name": "Lumina Discovery",
+  "description": "A comprehensive AI-powered self-exploration platform featuring MBTI, Holland Career, SCL-90, IQ, EQ, and Spiritual Needs assessments.",
   "requestFramePermissions": []
 }

@@ -1,5 +1,4 @@
-
-import { QuizType } from '../types';
+import { AssessmentType } from '../types';
 
 export interface QuizState {
   currentIndex: number;
@@ -9,7 +8,7 @@ export interface QuizState {
 
 const STORAGE_PREFIX = 'lumina_quiz_progress_';
 
-export const saveQuizProgress = (type: QuizType, currentIndex: number, answers: Record<number, string>) => {
+export const saveQuizProgress = (type: AssessmentType, currentIndex: number, answers: Record<number, string>) => {
   try {
     const data: QuizState = {
       currentIndex,
@@ -22,7 +21,7 @@ export const saveQuizProgress = (type: QuizType, currentIndex: number, answers: 
   }
 };
 
-export const getQuizProgress = (type: QuizType): QuizState | null => {
+export const getQuizProgress = (type: AssessmentType): QuizState | null => {
   try {
     const str = localStorage.getItem(STORAGE_PREFIX + type);
     if (!str) return null;
@@ -33,7 +32,7 @@ export const getQuizProgress = (type: QuizType): QuizState | null => {
   }
 };
 
-export const clearQuizProgress = (type: QuizType) => {
+export const clearQuizProgress = (type: AssessmentType) => {
   try {
     localStorage.removeItem(STORAGE_PREFIX + type);
   } catch (e) {

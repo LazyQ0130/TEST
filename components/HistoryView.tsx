@@ -1,11 +1,11 @@
 
 import React from 'react';
-import { HistoryItem, MBTIResult } from '../types';
+import { HistoryItem, AssessmentResult } from '../types';
 import { Clock, Trash2, ArrowRight, ChevronLeft, Calendar } from 'lucide-react';
 
 interface HistoryViewProps {
   history: HistoryItem[];
-  onSelect: (result: MBTIResult) => void;
+  onSelect: (result: AssessmentResult) => void;
   onBack: () => void;
   onClear: () => void;
 }
@@ -74,7 +74,9 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history, onSelect, onBack, on
                   <div>
                     <div className="flex items-baseline gap-3 mb-2">
                       <h3 className="text-3xl font-black text-indigo-600 tracking-tight">
-                        {item.result.type}
+                        {item.result.type === 'MBTI' ? item.result.data.type : 
+                         item.result.type === 'SPIRITUAL' ? item.result.data.dominant :
+                         item.result.type}
                       </h3>
                       <span className="text-sm text-slate-400 font-medium">
                         {formatDate(item.timestamp)}
@@ -82,22 +84,42 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history, onSelect, onBack, on
                     </div>
                     
                     <div className="flex gap-4 text-xs font-semibold text-slate-500">
-                      <div className="flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-                        {item.result.percentages.EI > 50 ? '外向' : '内向'} {Math.max(item.result.percentages.EI, 100 - item.result.percentages.EI)}%
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-pink-500"></span>
-                        {item.result.percentages.SN > 50 ? '实感' : '直觉'} {Math.max(item.result.percentages.SN, 100 - item.result.percentages.SN)}%
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                        {item.result.percentages.TF > 50 ? '思考' : '情感'} {Math.max(item.result.percentages.TF, 100 - item.result.percentages.TF)}%
-                      </div>
-                      <div className="flex items-center gap-1">
-                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                        {item.result.percentages.JP > 50 ? '判断' : '感知'} {Math.max(item.result.percentages.JP, 100 - item.result.percentages.JP)}%
-                      </div>
+                      {item.result.type === 'MBTI' && (
+                        <>
+                          <div className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                            {item.result.data.percentages.EI > 50 ? '外向' : '内向'} {Math.max(item.result.data.percentages.EI, 100 - item.result.data.percentages.EI)}%
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-pink-500"></span>
+                            {item.result.data.percentages.SN > 50 ? '实感' : '直觉'} {Math.max(item.result.data.percentages.SN, 100 - item.result.data.percentages.SN)}%
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                            {item.result.data.percentages.TF > 50 ? '思考' : '情感'} {Math.max(item.result.data.percentages.TF, 100 - item.result.data.percentages.TF)}%
+                          </div>
+                          <div className="flex items-center gap-1">
+                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            {item.result.data.percentages.JP > 50 ? '判断' : '感知'} {Math.max(item.result.data.percentages.JP, 100 - item.result.data.percentages.JP)}%
+                          </div>
+                        </>
+                      )}
+                      {item.result.type === 'HOLLAND' && (
+                        <span>Code: {item.result.data.code}</span>
+                      )}
+                      {item.result.type === 'SCL90' && (
+                        <span>Severity: {item.result.data.severity}</span>
+                      )}
+                      {(item.result.type === 'IQ' || item.result.type === 'EQ') && (
+                        <span>Level: {item.result.data.level}</span>
+                      )}
+                      {item.result.type === 'SPIRITUAL' && (
+                        <div className="flex gap-2">
+                           {Object.entries(item.result.data.scores).map(([k, v]) => (
+                             <span key={k}>{k}: {v}</span>
+                           ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 

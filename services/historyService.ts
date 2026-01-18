@@ -1,19 +1,12 @@
-
-import { MBTIResult, HistoryItem } from '../types';
+import { AssessmentResult, HistoryItem } from '../types';
 
 const STORAGE_KEY = 'lumina_mbti_history_v1';
 
-export const saveResultToHistory = (result: MBTIResult): void => {
+export const saveResultToHistory = (item: HistoryItem): void => {
   try {
     const existingHistory = getHistory();
-    const newItem: HistoryItem = {
-      id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
-      timestamp: Date.now(),
-      result,
-    };
-
     // Keep the latest 50 records
-    const updatedHistory = [newItem, ...existingHistory].slice(0, 50);
+    const updatedHistory = [item, ...existingHistory].slice(0, 50);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedHistory));
   } catch (error) {
     console.error("Failed to save history:", error);

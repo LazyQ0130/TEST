@@ -1,33 +1,56 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
-import { AIAnalysis } from "../types";
+import { AIAnalysis, AssessmentResult } from "../types";
 
 const createClient = () => {
   const apiKey = process.env.API_KEY;
   if (!apiKey) {
-    console.error("API Key is missing. Please set process.env.API_KEY");
+    console.error("API Key is missing.");
     return null;
   }
   return new GoogleGenAI({ apiKey });
 };
 
-export const generateMBTIAnalysis = async (
-  mbtiType: string,
-  percentages: { EI: number; SN: number; TF: number; JP: number }
+export const generateAssessmentAnalysis = async (
+  result: AssessmentResult
 ): Promise<AIAnalysis | null> => {
   const ai = createClient();
   if (!ai) return null;
 
-  const prompt = `
-    User MBTI Result: ${mbtiType}
-    Detailed Breakdown:
-    - Extraversion (E): ${percentages.EI}% vs Introversion (I): ${100 - percentages.EI}%
-    - Sensing (S): ${percentages.SN}% vs Intuition (N): ${100 - percentages.SN}%
-    - Thinking (T): ${percentages.TF}% vs Feeling (F): ${100 - percentages.TF}%
-    - Judging (J): ${percentages.JP}% vs Perceiving (P): ${100 - percentages.JP}%
+  let promptContext = "";
+  
+  switch (result.type) {
+    case 'MBTI':
+      promptContext = `Assessment: MBTI. Result: ${result.data.type}. Percentages: ${JSON.stringify(result.data.percentages)}`;
+      break;
+    case 'HOLLAND':
+      promptContext = `Assessment: Holland Code (Career). Result Code: ${result.data.code}. Scores: ${JSON.stringify(result.data.scores)}`;
+      break;
+    case 'SCL90':
+      promptContext = `Assessment: SCL-90 (Psychological Health). Severity: ${result.data.severity}. Factors: ${JSON.stringify(result.data.factorScores)}`;
+      break;
+    case 'IQ':
+      promptContext = `Assessment: IQ Test. Level: ${result.data.level}.`;
+      break;
+    case 'EQ':
+      promptContext = `Assessment: EQ Test. Level: ${result.data.level}.`;
+      break;
+    case 'SPIRITUAL':
+      promptContext = `Assessment: Spiritual Needs. Dominant Need: ${result.data.dominant}. Scores: ${JSON.stringify(result.data.scores)}`;
+      break;
+  }
 
-    Provide a detailed, professional, yet engaging psychological analysis for this specific user.
-    The output must be in JSON format.
-    Language: Chinese (Simplified).
+  const prompt = `
+    ${promptContext}
+    
+    Provide a professional, psychological analysis in Chinese (Simplified).
+    Return JSON.
+    Structure:
+    - title: Creative title for this result.
+    - summary: 2 sentence summary.
+    - keyTraits: 4 bullet points of traits.
+    - recommendations: 4 actionable advice items.
+    - detailedAnalysis: A paragraph (approx 100 words) of deep insight.
   `;
 
   try {
@@ -39,15 +62,13 @@ export const generateMBTIAnalysis = async (
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            title: { type: Type.STRING, description: "A creative title for this personality type (e.g., 'The Strategic Mastermind')" },
-            shortDescription: { type: Type.STRING, description: "A 2-sentence summary of the personality." },
-            strengths: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of 4 key strengths." },
-            weaknesses: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of 4 key weaknesses." },
-            careerPaths: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of 4 suitable career roles." },
-            relationships: { type: Type.STRING, description: "Advice on romantic or social relationships." },
-            famousPeople: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of 3 famous people with this type." },
+            title: { type: Type.STRING },
+            summary: { type: Type.STRING },
+            keyTraits: { type: Type.ARRAY, items: { type: Type.STRING } },
+            recommendations: { type: Type.ARRAY, items: { type: Type.STRING } },
+            detailedAnalysis: { type: Type.STRING },
           },
-          required: ["title", "shortDescription", "strengths", "weaknesses", "careerPaths", "relationships", "famousPeople"],
+          required: ["title", "summary", "keyTraits", "recommendations", "detailedAnalysis"],
         },
       },
     });
@@ -59,15 +80,12 @@ export const generateMBTIAnalysis = async (
 
   } catch (error) {
     console.error("Gemini API Error:", error);
-    // Fallback mock data in case of error (or no API key in dev)
     return {
-      title: `${mbtiType} - 分析生成失败`,
-      shortDescription: "我们暂时无法连接到AI分析服务，但根据您的选项，您属于上述类型。",
-      strengths: ["数据不足", "请检查网络", "或API配置", "稍后重试"],
-      weaknesses: ["暂时无法分析", "暂时无法分析", "暂时无法分析", "暂时无法分析"],
-      careerPaths: ["通用职业建议"],
-      relationships: "请稍后重试以获取关系建议。",
-      famousPeople: ["N/A"]
+      title: "分析服务暂不可用",
+      summary: "无法连接到AI服务器。",
+      keyTraits: ["N/A"],
+      recommendations: ["请检查网络连接"],
+      detailedAnalysis: "由于网络或API限制，暂时无法生成详细报告。"
     };
   }
 };
